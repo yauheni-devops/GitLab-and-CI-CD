@@ -1,33 +1,10 @@
 # Файл: .gitlab-ci.yml
-# 1. Глобально определяем порядок стадий.
-# Сначала пойдет 'build', и только потом 'test'.
 stages:
-  - build
   - test
 
-# 2. Определяем первую задачу (Job)
-build_job:
-  # Указываем, что эта задача принадлежит стадии 'build'
-  stage: build
-  # Указываем, что Runner должен использовать
-  # Docker-образ 'alpine:latest' для ее выполнения.
-  # 'alpine' - это очень маленький и быстрый Linux-дистрибутив.
-  image: alpine:latest
-  # Определяем, какие команды нужно выполнить
-  script:
-    - echo "Привет! Я задача 'build_job'!"
-    - echo "Я выполняюсь на стадии 'build'."
-    - sleep 5 # Имитируем долгую сборку
-    - echo "Сборка завершена!"
-
-# 3. Определяем вторую задачу (Job)
-test_job:
-  # Указываем, что эта задача принадлежит стадии 'test'
+broken_test_job:
   stage: test
-  image: alpine:latest
   script:
-    - echo "Привет! Я задача 'test_job'!"
-    - echo "Я выполняюсь на стадии 'test', ПОСЛЕ 'build_job'."
-    - echo "Запускаю тесты..."
-    - sleep 3
-    - echo "Тесты пройдены успешно!"
+    - echo "Running a job that will fail..."
+    - exit 1 # Эта команда имитирует неудачный тест
+    - echo "This line will never be executed"
