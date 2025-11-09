@@ -1,10 +1,74 @@
 # Файл: .gitlab-ci.yml
+
 stages:
   - test
+  - build
+  - deploy_staging
+  - deploy_production
 
-broken_test_job:
+simple_test_job:
   stage: test
   script:
-    - echo "Running a job that will fail..."
-    - echo "I am working"
-    - echo "This line will never be executed"
+    - echo "CI Job is running!"
+    - echo "Running tests..."
+    - sleep 2
+    - echo "Tests passed!"
+
+# --------------------------
+# НОВЫЙ ЭТАП: Сборка артефакта
+# --------------------------
+build_artifact_job:
+  stage: build
+  script:
+    - echo "Building artifact..."
+    # Создаем "фальшивый" артефакт
+    - echo "This is my build artifact - Job $CI_JOB_ID" > build_artifact.txt
+    - echo "Artifact created!"
+  artifacts:
+    # Сохраняем артефакт для следующих этапов
+    paths:
+      - build_artifact.txt
+    expire_in: 1 week # Артефакт будет храниться 1 неделю
+
+# --------------------------
+# НОВЫЙ ЭТАП: Развертывание в Staging (Автоматическое)
+# --------------------------
+deploy_staging_job:
+  stage: deploy_staging
+  script:
+    - echo "Deploying to Staging environment..."
+    - echo "Checking for artifact..."
+    # Проверяем, что артефакт из build_artifact_job доступен
+    - if [ -f "build_artifact.txt" ]; then
+    -   echo "Artifact found! Content:"
+    -   cat build_artifact.txt
+    - else
+    -   echo "Artifact NOT found!"
+    -   exit 1 # Завершить с ошибкой, если артефакта нет
+    - fi
+    - echo "Deployed to Staging!"
+  dependencies:
+    # Указываем, что этому заданию нужен артефакт из 'build_artifact_job'
+    - build_artifact_job
+
+# --------------------------
+# НОВЫЙ ЭТАП: Развертывание в Production (Ручное)
+# --------------------------
+deploy_production_job:
+  stage: deploy_production
+  script:
+    - echo "Manually deploying to Production environment..."
+    - echo "Checking for artifact..."
+    # Также проверяем наличие артефакта
+    - if [ -f "build_artifact.txt" ]; then
+    -   echo "Artifact found! Content:"
+    -   cat build_artifact.txt
+    - else
+    -   echo "Artifact NOT found!"
+    -   exit 1
+    - fi
+    - echo "Manually deployed to Production!"
+  dependencies:
+    # Это задание также зависит от артефакта из 'build'
+    - build_artifact_job
+  when: manual # ⬅️ Ключевая строка! Запускать это задание только вручную
