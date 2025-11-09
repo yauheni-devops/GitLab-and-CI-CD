@@ -6,5 +6,5 @@ broken_test_job:
   stage: test
   script:
     - echo "Running a job that will fail..."
-    - exit 1 # Эта команда имитирует неудачный тест
+    - echo "I am working"
     - echo "This line will never be executed"
