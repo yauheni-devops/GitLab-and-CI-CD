@@ -1,74 +1,41 @@
-# Файл: .gitlab-ci.yml
+variables:
+  IMAGE_NAME: nanajanashia/demo-app
+  IMAGE_TAG: python-app-1.0
 
 stages:
   - test
   - build
-  - deploy_staging
-  - deploy_production
+  - deploy
 
-simple_test_job:
+run_tests:
   stage: test
+  image: python:3.9-slim-buster
+  before_script:
+    - apt-get update && apt-get install make
   script:
-    - echo "CI Job is running!"
-    - echo "Running tests..."
-    - sleep 2
-    - echo "Tests passed!"
+    - make test
 
-# --------------------------
-# НОВЫЙ ЭТАП: Сборка артефакта
-# --------------------------
-build_artifact_job:
+
+build_image:
   stage: build
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - docker login -u $REGISTRY_USER -p $REGISTRY_PASS
   script:
-    - echo "Building artifact..."
-    # Создаем "фальшивый" артефакт
-    - echo "This is my build artifact - Job $CI_JOB_ID" > build_artifact.txt
-    - echo "Artifact created!"
-  artifacts:
-    # Сохраняем артефакт для следующих этапов
-    paths:
-      - build_artifact.txt
-    expire_in: 1 week # Артефакт будет храниться 1 неделю
+    - docker build -t $IMAGE_NAME:$IMAGE_TAG .
+    - docker push $IMAGE_NAME:$IMAGE_TAG
 
-# --------------------------
-# НОВЫЙ ЭТАП: Развертывание в Staging (Автоматическое)
-# --------------------------
-deploy_staging_job:
-  stage: deploy_staging
-  script:
-    - echo "Deploying to Staging environment..."
-    - echo "Checking for artifact..."
-    # Проверяем, что артефакт из build_artifact_job доступен
-    - if [ -f "build_artifact.txt" ]; then
-    -   echo "Artifact found! Content:"
-    -   cat build_artifact.txt
-    - else
-    -   echo "Artifact NOT found!"
-    -   exit 1 # Завершить с ошибкой, если артефакта нет
-    - fi
-    - echo "Deployed to Staging!"
-  dependencies:
-    # Указываем, что этому заданию нужен артефакт из 'build_artifact_job'
-    - build_artifact_job
 
-# --------------------------
-# НОВЫЙ ЭТАП: Развертывание в Production (Ручное)
-# --------------------------
-deploy_production_job:
-  stage: deploy_production
+deploy:
+  stage: deploy
+  before_script:
+    - chmod 400 $SSH_KEY
   script:
-    - echo "Manually deploying to Production environment..."
-    - echo "Checking for artifact..."
-    # Также проверяем наличие артефакта
-    - if [ -f "build_artifact.txt" ]; then
-    -   echo "Artifact found! Content:"
-    -   cat build_artifact.txt
-    - else
-    -   echo "Artifact NOT found!"
-    -   exit 1
-    - fi
-    - echo "Manually deployed to Production!"
-  dependencies:
-    # Это задание также зависит от артефакта из 'build'
-    - build_artifact_job
-  when: manual # ⬅️ Ключевая строка! Запускать это задание только вручную
+    - ssh -o StrictHostKeyChecking=no -i $SSH_KEY root@161.35.223.117 "
+        docker login -u $REGISTRY_USER -p $REGISTRY_PASS &&
+        docker ps -aq | xargs docker stop | xargs docker rm &&
+        docker run -d -p 5000:5000 $IMAGE_NAME:$IMAGE_TAG"
